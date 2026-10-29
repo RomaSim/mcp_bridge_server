@@ -1,52 +1,52 @@
 @echo off
 chcp 65001 >nul
-REM MCP Bridge Server 启动脚本 (Windows)
+REM Скрипт запуска MCP Bridge Server (Windows)
 
 echo ========================================
-echo MCP Bridge Server 启动器
+echo Средство запуска MCP Bridge Server
 echo ========================================
 echo.
 
-REM 检查 Python 是否安装
+REM Проверить, установлен ли Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [错误] 未找到 Python，请先安装 Python 3.8+
+    echo [Ошибка] Python не найден. Сначала установите Python 3.8+
     pause
     exit /b 1
 )
 
-echo 选择启动模式:
+echo Выберите режим запуска:
 echo.
-echo   1. 默认启动 (交互式，端口 3849)
-echo   2. 自动结束占用进程 (端口 3849)
-echo   3. 自定义端口启动
-echo   4. 查看帮助
-echo   5. 退出
+echo   1. Запуск по умолчанию (интерактивный, порт 3849)
+echo   2. Автоматически завершить процесс, занимающий порт (порт 3849)
+echo   3. Запуск с пользовательским портом
+echo   4. Просмотр справки
+echo   5. Выход
 echo.
 
-set /p choice="请输入选项 (1-5): "
+set /p choice="Введите вариант (1-5): "
 
 if "%choice%"=="1" (
     echo.
-    echo 正在以交互模式启动...
-    python utils\mcp_bridge.py
+    echo Запуск в интерактивном режиме...
+    python utils\mcp_bridge_ru.py
 ) else if "%choice%"=="2" (
     echo.
-    echo 正在启动并自动处理端口占用...
-    python utils\mcp_bridge.py --auto-kill-port
+    echo Запуск с автоматическим завершением процесса, занимающего порт...
+    python utils\mcp_bridge_ru.py --auto-kill-port
 ) else if "%choice%"=="3" (
     echo.
-    set /p port="请输入端口号: "
-    set /p auto_kill="是否自动结束占用进程? (y/n): "
+    set /p port="Введите номер порта: "
+    set /p auto_kill="Автоматически завершить процесс, занимающий порт? (y/n): "
     
     if /i "%auto_kill%"=="y" (
-        python utils\mcp_bridge.py --port %port% --auto-kill-port
+        python utils\mcp_bridge_ru.py --port %port% --auto-kill-port
     ) else (
-        python utils\mcp_bridge.py --port %port%
+        python utils\mcp_bridge_ru.py --port %port%
     )
 ) else if "%choice%"=="4" (
     echo.
-    python utils\mcp_bridge.py --help
+    python utils\mcp_bridge_ru.py --help
     echo.
     pause
     goto :eof
@@ -54,7 +54,7 @@ if "%choice%"=="1" (
     exit /b 0
 ) else (
     echo.
-    echo [错误] 无效的选项
+    echo [Ошибка] Неверный вариант
     pause
     exit /b 1
 )
