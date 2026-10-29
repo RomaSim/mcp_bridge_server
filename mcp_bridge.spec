@@ -4,7 +4,7 @@ block_cipher = None
 
 # Проанализировать все зависимости
 a = Analysis(
-    ['utils/mcp_bridge_ru.py'],
+    ['utils/mcp_bridge.py'],
     pathex=[],
     binaries=[],
     datas=[

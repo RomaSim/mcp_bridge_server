@@ -55,7 +55,7 @@ if "%choice%"=="1" (
         --hidden-import uvicorn.protocols.http.auto ^
         --exclude-module tkinter ^
         --exclude-module matplotlib ^
-        utils\mcp_bridge_ru.py
+        utils\mcp_bridge.py
     
     echo.
     echo ✓ Сборка завершена!
@@ -81,7 +81,7 @@ if "%choice%"=="1" (
         --hidden-import uvicorn.logging ^
         --hidden-import uvicorn.loops.auto ^
         --hidden-import uvicorn.protocols.http.auto ^
-        utils\mcp_bridge_ru.py
+        utils\mcp_bridge.py
     
     echo.
     echo ✓ Сборка завершена!
@@ -97,7 +97,7 @@ if "%choice%"=="1" (
     if exist dist rmdir /s /q dist
     
     REM Сборка
-    pyinstaller mcp_bridge_ru.spec
+    pyinstaller mcp_bridge.spec
     
     echo.
     echo ✓ Сборка завершена!

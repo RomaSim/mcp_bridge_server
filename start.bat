@@ -29,24 +29,24 @@ set /p choice="Введите вариант (1-5): "
 if "%choice%"=="1" (
     echo.
     echo Запуск в интерактивном режиме...
-    python utils\mcp_bridge_ru.py
+    python utils\mcp_bridge.py
 ) else if "%choice%"=="2" (
     echo.
     echo Запуск с автоматическим завершением процесса, занимающего порт...
-    python utils\mcp_bridge_ru.py --auto-kill-port
+    python utils\mcp_bridge.py --auto-kill-port
 ) else if "%choice%"=="3" (
     echo.
     set /p port="Введите номер порта: "
     set /p auto_kill="Автоматически завершить процесс, занимающий порт? (y/n): "
     
     if /i "%auto_kill%"=="y" (
-        python utils\mcp_bridge_ru.py --port %port% --auto-kill-port
+        python utils\mcp_bridge.py --port %port% --auto-kill-port
     ) else (
-        python utils\mcp_bridge_ru.py --port %port%
+        python utils\mcp_bridge.py --port %port%
     )
 ) else if "%choice%"=="4" (
     echo.
-    python utils\mcp_bridge_ru.py --help
+    python utils\mcp_bridge.py --help
     echo.
     pause
     goto :eof
