@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-MCP Bridge Server - Python版本
-提供HTTP接口来管理和调用MCP服务器
+MCP Bridge Server — версия на Python
+Предоставляет HTTP-интерфейс для управления MCP-серверами и их вызова.
 """
 
 import asyncio
@@ -21,13 +21,13 @@ import time
 import json
 from collections import OrderedDict
 
-# 尝试导入版本信息
+# Попытка импортировать информацию о версии
 try:
-    # 如果是打包后的程序，使用相对导入
+    # Если это упакованное приложение — используем относительный импорт
     if getattr(sys, 'frozen', False):
         __version__ = "1.0.0"
     else:
-        # 开发环境，从 version.py 导入
+        # Среда разработки — импорт из version.py
         parent_dir = Path(__file__).parent.parent
         if str(parent_dir) not in sys.path:
             sys.path.insert(0, str(parent_dir))
@@ -41,7 +41,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
 
-# MCP SDK 导入
+# Импорт MCP SDK
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
@@ -50,7 +50,7 @@ PORT = 3849
 
 
 def is_port_in_use(port: int) -> bool:
-    """检查端口是否被占用"""
+    """Проверить, занят ли порт"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.bind(('0.0.0.0', port))
@@ -60,10 +60,10 @@ def is_port_in_use(port: int) -> bool:
 
 
 def get_process_using_port(port: int) -> Optional[Dict[str, Any]]:
-    """获取占用端口的进程信息"""
+    """Получить информацию о процессе, занимающем порт"""
     try:
         if sys.platform == "win32":
-            # Windows 使用 netstat
+            # В Windows используем netstat
             result = subprocess.run(
                 ['netstat', '-ano'],
                 capture_output=True,
@@ -76,7 +76,7 @@ def get_process_using_port(port: int) -> Optional[Dict[str, Any]]:
                     parts = line.split()
                     if len(parts) >= 5 and parts[1].endswith(f':{port}'):
                         pid = parts[-1]
-                        # 获取进程名称
+                        # Получить имя процесса
                         try:
                             tasklist_result = subprocess.run(
                                 ['tasklist', '/FI', f'PID eq {pid}', '/NH'],
@@ -90,7 +90,7 @@ def get_process_using_port(port: int) -> Optional[Dict[str, Any]]:
                         except:
                             return {"pid": pid, "name": "Unknown"}
         else:
-            # Linux/Mac 使用 lsof
+            # В Linux/Mac используем lsof
             result = subprocess.run(
                 ['lsof', '-i', f':{port}', '-t'],
                 capture_output=True,
@@ -98,7 +98,7 @@ def get_process_using_port(port: int) -> Optional[Dict[str, Any]]:
             )
             if result.stdout.strip():
                 pid = result.stdout.strip().split('\n')[0]
-                # 获取进程名称
+                # Получить имя процесса
                 try:
                     name_result = subprocess.run(
                         ['ps', '-p', pid, '-o', 'comm='],
@@ -110,13 +110,13 @@ def get_process_using_port(port: int) -> Optional[Dict[str, Any]]:
                 except:
                     return {"pid": pid, "name": "Unknown"}
     except Exception as e:
-        print(f"获取进程信息失败: {e}")
+        print(f"Не удалось получить информацию о процессе: {e}")
     
     return None
 
 
 def kill_process_by_pid(pid: str) -> bool:
-    """根据 PID 结束进程"""
+    """Завершить процесс по PID"""
     try:
         if sys.platform == "win32":
             subprocess.run(
@@ -128,101 +128,101 @@ def kill_process_by_pid(pid: str) -> bool:
             subprocess.run(['kill', '-9', pid], check=True)
         return True
     except Exception as e:
-        print(f"结束进程失败: {e}")
+        print(f"Не удалось завершить процесс: {e}")
         return False
 
 
 def check_and_handle_port(port: int, auto_kill: bool = False) -> bool:
     """
-    检查并处理端口占用
+    Проверить и обработать занятость порта
     
-    Args:
-        port: 要检查的端口
-        auto_kill: 是否自动结束占用进程（通过环境变量或命令行参数）
+    Аргументы:
+        port: Порт для проверки
+        auto_kill: Автоматически завершать процесс, занимающий порт (через переменную окружения или аргумент командной строки)
     
-    Returns:
-        True 如果端口可用，False 如果端口被占用且用户选择不结束进程
+    Возвращает:
+        True — если порт доступен, False — если порт занят и пользователь отказался завершать процесс
     """
     if not is_port_in_use(port):
         return True
     
-    print(f"\n⚠️  端口 {port} 已被占用")
+    print(f"\n⚠️  Порт {port} уже занят")
     
-    # 获取占用进程信息
+    # Получить информацию о занимающем процессе
     process_info = get_process_using_port(port)
     if process_info:
-        print(f"   占用进程: {process_info['name']} (PID: {process_info['pid']})")
+        print(f"   Занимающий процесс: {process_info['name']} (PID: {process_info['pid']})")
     
-    # 检查环境变量
+    # Проверить переменную окружения
     if auto_kill or os.environ.get('MCP_AUTO_KILL_PORT', '').lower() in ['true', '1', 'yes']:
-        print(f"   自动结束占用进程...")
+        print(f"   Автоматическое завершение занимающего процесса...")
         if process_info and kill_process_by_pid(process_info['pid']):
-            print(f"   ✓ 进程已结束")
-            # 等待端口释放
+            print(f"   ✓ Процесс завершён")
+            # Подождать освобождения порта
             import time
             time.sleep(1)
             if not is_port_in_use(port):
-                print(f"   ✓ 端口 {port} 已释放")
+                print(f"   ✓ Порт {port} освобождён")
                 return True
             else:
-                print(f"   ✗ 端口 {port} 仍被占用")
+                print(f"   ✗ Порт {port} всё ещё занят")
                 return False
         else:
-            print(f"   ✗ 无法结束进程")
+            print(f"   ✗ Не удалось завершить процесс")
             return False
     
-    # 交互式询问
+    # Интерактивный запрос
     try:
-        print(f"\n请选择操作:")
-        print(f"  1. 结束占用进程并继续")
-        print(f"  2. 使用其他端口")
-        print(f"  3. 退出程序")
+        print(f"\nВыберите действие:")
+        print(f"  1. Завершить занимающий процесс и продолжить")
+        print(f"  2. Использовать другой порт")
+        print(f"  3. Выйти из программы")
         
-        choice = input("\n请输入选项 (1/2/3): ").strip()
+        choice = input("\nВведите вариант (1/2/3): ").strip()
         
         if choice == '1':
             if process_info and kill_process_by_pid(process_info['pid']):
-                print(f"✓ 进程已结束")
-                # 等待端口释放
+                print(f"✓ Процесс завершён")
+                # Подождать освобождения порта
                 import time
                 time.sleep(1)
                 if not is_port_in_use(port):
-                    print(f"✓ 端口 {port} 已释放")
+                    print(f"✓ Порт {port} освобождён")
                     return True
                 else:
-                    print(f"✗ 端口 {port} 仍被占用，请手动处理")
+                    print(f"✗ Порт {port} всё ещё занят, освободите порт вручную")
                     return False
             else:
-                print(f"✗ 无法结束进程")
+                print(f"✗ Не удалось завершить процесс")
                 return False
         
         elif choice == '2':
-            new_port = input(f"请输入新端口号 (当前: {port}): ").strip()
+            new_port = input(f"Введите новый номер порта (текущий: {port}): ").strip()
             try:
                 new_port_num = int(new_port)
                 if 1 <= new_port_num <= 65535:
                     global PORT
                     PORT = new_port_num
-                    print(f"✓ 已切换到端口 {PORT}")
+                    print(f"✓ Переключено на порт {PORT}")
                     return check_and_handle_port(PORT, auto_kill)
                 else:
-                    print(f"✗ 端口号必须在 1-65535 之间")
+                    print(f"✗ Номер порта должен быть в диапазоне 1–65535")
                     return False
             except ValueError:
-                print(f"✗ 无效的端口号")
+                print(f"✗ Некорректный номер порта")
                 return False
         
         else:
-            print("退出程序")
+            print("Выход из программы")
             return False
     
     except (KeyboardInterrupt, EOFError):
-        print("\n\n已取消")
+        print("\n\nОтменено")
         return False
 
 
 def get_config_path() -> Path:
-    """获取配置文件路径"""
+    """Получить путь к файлу конфигурации"""
     system = sys.platform
     
     if system == "win32":
@@ -237,70 +237,70 @@ def get_config_path() -> Path:
     else:
         config_dir = Path.home() / ".mcp-bridge" / "config"
     
-    # 创建目录
+    # Создать каталог
     try:
         config_dir.mkdir(parents=True, exist_ok=True)
-        print(f"配置目录: {config_dir}")
+        print(f"Каталог конфигурации: {config_dir}")
     except Exception as e:
-        print(f"创建配置目录失败: {config_dir}, 错误: {e}")
+        print(f"Не удалось создать каталог конфигурации: {config_dir}, ошибка: {e}")
     
     return config_dir / "mcp-config.json"
 
 
 class MCPServerConfig(BaseModel):
-    """MCP服务器配置"""
+    """Конфигурация MCP-сервера"""
     enabled: bool = True
     disabled: bool = False
-    type: str = "stdio"  # "stdio" 或 "sse"
-    # stdio 类型配置
+    type: str = "stdio"  # "stdio" или "sse"
+    # Конфигурация типа stdio
     command: Optional[str] = None
     args: List[str] = []
     env: Dict[str, str] = {}
-    # sse 类型配置
+    # Конфигурация типа sse
     url: Optional[str] = None
-    # 通用配置
+    # Общая конфигурация
     timeout: int = 30
     description: str = ""
-    # 缓存配置
-    max_output_bytes: int = 1000  # 触发缓存的输出字节数阈值
-    output_truncate_strategy: str = "tail"  # 截断策略: "tail", "head", "middle"
-    cache_large_results: bool = True  # 是否启用大结果缓存
-    result_cache_ttl: int = 300  # 缓存过期时间（秒）
-    max_memory_cache_size: int = 10240  # 内存缓存阈值（字节），超过此大小使用文件缓存
+    # Конфигурация кэша
+    max_output_bytes: int = 1000  # Порог размера вывода в байтах для срабатывания кэша
+    output_truncate_strategy: str = "tail"  # Стратегия обрезки: "tail", "head", "middle"
+    cache_large_results: bool = True  # Включить кэширование больших результатов
+    result_cache_ttl: int = 300  # Время жизни кэша (секунды)
+    max_memory_cache_size: int = 10240  # Порог памяти для кэша (байты); при превышении используется файловый кэш
 
 
 class Config(BaseModel):
-    """配置文件结构"""
+    """Структура файла конфигурации"""
     mcpServers: Dict[str, MCPServerConfig]
 
 
 class ExecuteRequest(BaseModel):
-    """执行工具请求"""
+    """Запрос на выполнение инструмента"""
     name: str
     arguments: Dict[str, Any] = {}
-    serverName: Optional[str] = None  # 可选的服务名称，用于指定特定服务下的工具
+    serverName: Optional[str] = None  # Необязательное имя сервиса для указания конкретного сервиса
 
 
 class ConfigUpdateRequest(BaseModel):
-    """配置更新请求"""
+    """Запрос на обновление конфигурации"""
     config: Dict[str, Any]
 
 
 class ServerRestartRequest(BaseModel):
-    """服务器重启请求"""
+    """Запрос на перезапуск сервера"""
     serverName: str
-    config: Optional[Dict[str, Any]] = None  # 可选的新配置
+    config: Optional[Dict[str, Any]] = None  # Необязательная новая конфигурация
 
 
 class GetResultRequest(BaseModel):
-    """获取缓存结果请求"""
+    """Запрос на получение кэшированного результата"""
     cache_id: str
     start: Optional[int] = 0
     end: Optional[int] = None
 
 
 class SearchCacheRequest(BaseModel):
-    """搜索缓存内容请求"""
+    """Запрос на поиск в кэше"""
     cache_id: str
     keyword: str
     case_sensitive: Optional[bool] = False
@@ -308,31 +308,31 @@ class SearchCacheRequest(BaseModel):
 
 
 class GetCacheContextRequest(BaseModel):
-    """获取缓存上下文请求"""
+    """Запрос на получение контекста из кэша"""
     cache_id: str
     line_num: int
     context_lines: Optional[int] = 3
 
 
 class MCPManager:
-    """MCP服务管理器"""
+    """Менеджер MCP-сервисов"""
     
     def __init__(self):
         self.clients: Dict[str, Dict[str, Any]] = {}
         self.tool_call_history: Dict[str, int] = {}
         self.sessions: Dict[str, ClientSession] = {}
-        self.config_cache: Dict[str, Any] = {}  # 缓存配置用于重启单个服务
+        self.config_cache: Dict[str, Any] = {}  # Кэш конфигурации для перезапуска отдельного сервиса
         
-        # 缓存系统相关
-        self.memory_cache: OrderedDict = OrderedDict()  # 内存缓存
-        self.cache_lock = threading.RLock()  # 缓存访问锁
-        self.max_memory_cache_items = 100  # 最大内存缓存条目数
+        # Связано с системой кэширования
+        self.memory_cache: OrderedDict = OrderedDict()  # Кэш в памяти
+        self.cache_lock = threading.RLock()  # Блокировка доступа к кэшу
+        self.max_memory_cache_items = 100  # Максимальное число элементов в кэше памяти
     
     async def load_config(self, config_path: Path) -> Dict[str, Any]:
-        """加载配置文件"""
+        """Загрузить файл конфигурации"""
         try:
             if not config_path.exists():
-                print(f"配置文件不存在，正在创建默认配置: {config_path}")
+                print(f"Файл конфигурации не существует, создаём конфигурацию по умолчанию: {config_path}")
                 
                 default_config = {
                     "mcpServers": {
@@ -340,7 +340,7 @@ class MCPManager:
                             "enabled": True,
                             "command": "path/to/your/mcp/server/executable",
                             "args": ["--port", "8080"],
-                            "description": "这是一个示例服务，请替换成你自己的配置。它能...",
+                            "description": "Это пример сервиса, замените его на свою конфигурацию. Он умеет...",
                             "env": {}
                         }
                     }
@@ -350,112 +350,112 @@ class MCPManager:
                 with open(config_path, 'w', encoding='utf-8') as f:
                     json.dump(default_config, f, indent=2, ensure_ascii=False)
                 
-                print(f"✓ 默认配置已创建: {config_path}")
-                self.config_cache = default_config  # 缓存配置
+                print(f"✓ Конфигурация по умолчанию создана: {config_path}")
+                self.config_cache = default_config  # Кэшировать конфигурацию
                 return default_config
             
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                self.config_cache = config  # 缓存配置
+                self.config_cache = config  # Кэшировать конфигурацию
                 return config
         
         except Exception as e:
-            print(f"读取配置失败: {e}")
+            print(f"Не удалось прочитать конфигурацию: {e}")
             return {"mcpServers": {}}
     
     async def init_server(self, server_name: str, server_config: Dict[str, Any]):
-        """初始化单个MCP服务器"""
+        """Инициализировать отдельный MCP-сервер"""
         if server_name in self.clients:
-            print(f"服务器 {server_name} 已初始化")
+            print(f"Сервер {server_name} уже инициализирован")
             return
         
         server_type = server_config.get("type", "stdio").lower()
         timeout = server_config.get("timeout", 30)
         
         try:
-            print(f"正在初始化服务器 {server_name} (类型: {server_type})...")
+            print(f"Инициализация сервера {server_name} (тип: {server_type})...")
             
             if server_type == "sse":
-                # SSE 类型服务器
+                # Сервер типа SSE
                 await self._init_sse_server(server_name, server_config, timeout)
             else:
-                # stdio 类型服务器
+                # Сервер типа stdio
                 await self._init_stdio_server(server_name, server_config, timeout)
             
-            print(f"✓ 服务器 {server_name} 初始化成功，加载 {len(self.clients[server_name]['tools'])} 个工具")
+            print(f"✓ Сервер {server_name} успешно инициализирован, загружено инструментов: {len(self.clients[server_name]['tools'])}")
         
         except asyncio.TimeoutError:
-            print(f"✗ 服务器 {server_name} 初始化超时（{timeout}秒）")
+            print(f"✗ Превышено время инициализации сервера {server_name} ({timeout} с)")
             raise
         except Exception as e:
-            print(f"✗ 服务器 {server_name} 初始化失败: {e}")
+            print(f"✗ Не удалось инициализировать сервер {server_name}: {e}")
             import traceback
             traceback.print_exc()
             raise
     
     async def _init_stdio_server(self, server_name: str, server_config: Dict[str, Any], timeout: int):
-        """初始化 stdio 类型服务器"""
+        """Инициализировать сервер типа stdio"""
         command = server_config.get("command")
         if not command:
-            raise ValueError(f"stdio 类型服务器必须指定 command 字段")
+            raise ValueError(f"Сервер типа stdio должен указывать поле command")
         
         args = server_config.get("args", [])
         env = server_config.get("env", {})
         
-        # 合并环境变量
+        # Объединить переменные окружения
         server_env = {**os.environ, **env}
         
-        print(f"  执行命令: {command} {' '.join(args)}")
+        print(f"  Команда выполнения: {command} {' '.join(args)}")
         
-        # 创建服务器参数
+        # Создать параметры сервера
         server_params = StdioServerParameters(
             command=command,
             args=args,
             env=server_env
         )
         
-        print(f"  正在启动子进程...")
+        print(f"  Запуск дочернего процесса...")
         
-        # 使用异步上下文管理器连接到服务器
+        # Подключиться к серверу через асинхронный контекстный менеджер
         stdio_context = stdio_client(server_params)
         read, write = await asyncio.wait_for(
             stdio_context.__aenter__(),
             timeout=timeout
         )
-        print(f"  子进程已启动，正在建立会话...")
+        print(f"  Дочерний процесс запущен, установка сессии...")
         
-        # 创建会话上下文管理器
+        # Создать контекстный менеджер сессии
         session_context = ClientSession(read, write)
         session = await asyncio.wait_for(
             session_context.__aenter__(),
             timeout=timeout
         )
-        print(f"  会话已建立，正在初始化...")
+        print(f"  Сессия установлена, инициализация...")
         
         try:
-            # 初始化会话
+            # Инициализировать сессию
             await asyncio.wait_for(
                 session.initialize(),
                 timeout=timeout
             )
-            print(f"  会话初始化完成")
+            print(f"  Сессия инициализирована")
         except asyncio.TimeoutError:
-            print(f"  ✗ 会话初始化超时")
+            print(f"  ✗ Превышено время инициализации сессии")
             await session_context.__aexit__(None, None, None)
             await stdio_context.__aexit__(None, None, None)
             raise
         
-        # 获取工具列表
+        # Получить список инструментов
         try:
-            print(f"  正在获取工具列表...")
+            print(f"  Получение списка инструментов...")
             tools_response = await asyncio.wait_for(
                 session.list_tools(),
                 timeout=timeout
             )
             tools = tools_response.tools if hasattr(tools_response, 'tools') else []
-            print(f"  成功获取 {len(tools)} 个工具")
+            print(f"  Успешно получено инструментов: {len(tools)}")
         except asyncio.TimeoutError:
-            print(f"  ✗ 获取工具列表超时")
+            print(f"  ✗ Превышено время получения списка инструментов")
             await session_context.__aexit__(None, None, None)
             await stdio_context.__aexit__(None, None, None)
             raise
@@ -472,12 +472,12 @@ class MCPManager:
         }
     
     async def _init_sse_server(self, server_name: str, server_config: Dict[str, Any], timeout: int):
-        """初始化 SSE 类型服务器"""
+        """Инициализировать сервер типа SSE"""
         url = server_config.get("url")
         if not url:
-            raise ValueError(f"sse 类型服务器必须指定 url 字段")
+            raise ValueError(f"Сервер типа sse должен указывать поле url")
         
-        print(f"  连接到 SSE 服务器: {url}")
+        print(f"  Подключение к SSE-серверу: {url}")
         
         sse_context = None
         read = None
@@ -485,55 +485,55 @@ class MCPManager:
         session_context = None
         
         try:
-            # 使用异步上下文管理器连接到 SSE 服务器
+            # Подключиться к SSE-серверу через асинхронный контекстный менеджер
             sse_context = sse_client(url)
             
-            # 建立 SSE 连接
+            # Установить SSE-соединение
             try:
                 read, write = await asyncio.wait_for(
                     sse_context.__aenter__(),
                     timeout=timeout
                 )
-                print(f"  SSE 连接已建立")
+                print(f"  SSE-соединение установлено")
             except asyncio.TimeoutError:
-                print(f"  ✗ 连接 SSE 服务器超时（{timeout}秒）")
-                print(f"  提示：请检查 URL 是否有效，或尝试增加 timeout 值")
+                print(f"  ✗ Превышено время подключения к SSE-серверу ({timeout} с)")
+                print(f"  Подсказка: проверьте корректность URL или увеличьте значение timeout")
                 raise
             except Exception as e:
-                print(f"  ✗ 连接 SSE 服务器失败: {e}")
-                print(f"  提示：请确认 URL 格式正确且服务器可访问")
+                print(f"  ✗ Не удалось подключиться к SSE-серверу: {e}")
+                print(f"  Подсказка: убедитесь, что формат URL корректен и сервер доступен")
                 raise
             
-            # 创建会话上下文管理器
+            # Создать контекстный менеджер сессии
             session_context = ClientSession(read, write)
             session = await asyncio.wait_for(
                 session_context.__aenter__(),
                 timeout=timeout
             )
-            print(f"  会话已建立，正在初始化...")
+            print(f"  Сессия установлена, инициализация...")
             
-            # 初始化会话
+            # Инициализировать сессию
             try:
                 await asyncio.wait_for(
                     session.initialize(),
                     timeout=timeout
                 )
-                print(f"  会话初始化完成")
+                print(f"  Сессия инициализирована")
             except asyncio.TimeoutError:
-                print(f"  ✗ 会话初始化超时")
+                print(f"  ✗ Превышено время инициализации сессии")
                 raise
             
-            # 获取工具列表
+            # Получить список инструментов
             try:
-                print(f"  正在获取工具列表...")
+                print(f"  Получение списка инструментов...")
                 tools_response = await asyncio.wait_for(
                     session.list_tools(),
                     timeout=timeout
                 )
                 tools = tools_response.tools if hasattr(tools_response, 'tools') else []
-                print(f"  成功获取 {len(tools)} 个工具")
+                print(f"  Успешно получено инструментов: {len(tools)}")
             except asyncio.TimeoutError:
-                print(f"  ✗ 获取工具列表超时")
+                print(f"  ✗ Превышено время получения списка инструментов")
                 raise
             
             self.clients[server_name] = {
@@ -548,16 +548,16 @@ class MCPManager:
             }
             
         except Exception:
-            # 清理资源
+            # Очистить ресурсы
             if session_context and read is not None:
-                print(f"  清理会话...")
+                print(f"  Очистка сессии...")
                 try:
                     await session_context.__aexit__(*sys.exc_info())
                 except Exception:
                     pass
             
             if sse_context and read is not None:
-                print(f"  清理 SSE 连接...")
+                print(f"  Очистка SSE-соединения...")
                 try:
                     await sse_context.__aexit__(*sys.exc_info())
                 except Exception:
@@ -565,45 +565,45 @@ class MCPManager:
             raise
     
     async def init_all_servers(self, config: Dict[str, Any]):
-        """初始化所有服务器"""
+        """Инициализировать все серверы"""
         servers = config.get("mcpServers", {})
         
         tasks = []
         for name, cfg in servers.items():
-            # 检查 enabled 标志
+            # Проверить флаг enabled
             if cfg.get("enabled", True) is False:
-                print(f"ℹ️ 服务 {name} 已被禁用，跳过加载。")
+                print(f"ℹ️  Сервис {name} отключён, пропускаем загрузку.")
                 continue
             
-            # 创建初始化任务
+            # Создать задачу инициализации
             task = self._init_server_with_error_handling(name, cfg)
             tasks.append(task)
         
         await asyncio.gather(*tasks, return_exceptions=True)
     
     async def _init_server_with_error_handling(self, name: str, cfg: Dict[str, Any]):
-        """带错误处理的服务器初始化"""
+        """Инициализация сервера с обработкой ошибок"""
         try:
             await self.init_server(name, cfg)
         except Exception as e:
-            print(f"跳过服务器 {name}: {e}")
+            print(f"Пропускаем сервер {name}: {e}")
     
     def get_services(self) -> List[Dict[str, str]]:
-        """获取所有服务列表"""
+        """Получить список всех сервисов"""
         services = []
         for server_name, client_data in self.clients.items():
             config = client_data["config"]
             services.append({
                 "name": server_name,
-                "description": config.get("description", f"一个名为 {server_name} 的工具服务。"),
-                "is_core": config.get("is_core", False)  # 读取配置中的 is_core 标记，默认为 False
+                "description": config.get("description", f"Сервис инструментов с именем {server_name}."),
+                "is_core": config.get("is_core", False)  # Читать флаг is_core из конфигурации, по умолчанию False
             })
         return services
     
     def get_tools_by_server(self, server_name: str) -> Dict[str, Any]:
-        """获取指定服务器的工具列表（包含服务描述）"""
+        """Получить список инструментов указанного сервера (включая описание сервиса)"""
         if server_name not in self.clients:
-            raise ValueError(f"服务 {server_name} 不存在或未成功加载")
+            raise ValueError(f"Сервис {server_name} не существует или не был успешно загружен")
         
         client_data = self.clients[server_name]
         config = client_data["config"]
@@ -611,7 +611,7 @@ class MCPManager:
         
         return {
             "service_name": server_name,
-            "service_description": config.get("description", f"一个名为 {server_name} 的工具服务。"),
+            "service_description": config.get("description", f"Сервис инструментов с именем {server_name}."),
             "tools": [
                 {
                     "name": tool.name,
@@ -624,21 +624,21 @@ class MCPManager:
     
     def get_tool_detail(self, tool_name: str, server_name: Optional[str] = None) -> Dict[str, Any]:
         """
-        获取工具的详细信息
+        Получить подробную информацию об инструменте
         
-        Args:
-            tool_name: 工具名称
-            server_name: 可选的服务名称
+        Аргументы:
+            tool_name: Имя инструмента
+            server_name: Необязательное имя сервиса
         
-        Returns:
-            工具的详细信息，包括完整的参数定义
+        Возвращает:
+            Подробная информация об инструменте, включая полное определение параметров
         """
         target_server = None
         target_tool = None
         
         if server_name:
             if server_name not in self.clients:
-                raise ValueError(f"服务 {server_name} 不存在或未加载")
+                raise ValueError(f"Сервис {server_name} не существует или не загружен")
             
             tools = self.clients[server_name]["tools"]
             for tool in tools:
@@ -648,9 +648,9 @@ class MCPManager:
                     break
             
             if not target_tool:
-                raise ValueError(f"服务 {server_name} 中不存在工具 {tool_name}")
+                raise ValueError(f"В сервисе {server_name} не существует инструмента {tool_name}")
         else:
-            # 在所有服务中查找
+            # Искать во всех сервисах
             for srv_name, client_data in self.clients.items():
                 tools = client_data["tools"]
                 for tool in tools:
@@ -662,9 +662,9 @@ class MCPManager:
                     break
             
             if not target_tool:
-                raise ValueError(f"工具 {tool_name} 不存在")
+                raise ValueError(f"Инструмент {tool_name} не существует")
         
-        # 提取完整的工具信息
+        # Извлечь полную информацию об инструменте
         return {
             "name": target_tool.name,
             "description": target_tool.description,
@@ -675,34 +675,34 @@ class MCPManager:
     
     async def execute_tool(self, tool_name: str, args: Dict[str, Any], server_name: Optional[str] = None) -> Any:
         """
-        执行工具
+        Выполнить инструмент
         
-        Args:
-            tool_name: 工具名称
-            args: 工具参数
-            server_name: 可选的服务名称，指定从哪个服务调用工具
+        Аргументы:
+            tool_name: Имя инструмента
+            args: Параметры инструмента
+            server_name: Необязательное имя сервиса, указывающее, из какого сервиса вызывать инструмент
         
-        Returns:
-            工具执行结果
+        Возвращает:
+            Результат выполнения инструмента
         
-        Raises:
-            ValueError: 当工具不存在、服务不存在或达到最大调用次数时
+        Исключения:
+            ValueError: Если инструмент не существует, сервис не существует или достигнут лимит вызовов
         """
         target_server = None
         target_session = None
         
-        # 清理参数：移除值为 None 的键，因为某些 MCP 服务可能不支持 null 值
+        # Очистить параметры: удалить ключи со значением None, так как некоторые MCP-сервисы не поддерживают null
         cleaned_args = {k: v for k, v in args.items() if v is not None}
         
-        # 如果指定了服务名称，直接在该服务中查找
+        # Если указано имя сервиса — искать только в нём
         if server_name:
             if server_name not in self.clients:
-                raise ValueError(f"服务 {server_name} 不存在或未加载")
+                raise ValueError(f"Сервис {server_name} не существует или не загружен")
             
             client_data = self.clients[server_name]
             tools = client_data["tools"]
             
-            # 在指定服务中查找工具
+            # Искать инструмент в указанном сервисе
             tool_found = False
             for tool in tools:
                 if tool.name == tool_name:
@@ -712,10 +712,10 @@ class MCPManager:
                     break
             
             if not tool_found:
-                raise ValueError(f"服务 {server_name} 中不存在工具 {tool_name}")
+                raise ValueError(f"В сервисе {server_name} не существует инструмента {tool_name}")
         
         else:
-            # 未指定服务名称，在所有服务中查找（保持向后兼容）
+            # Имя сервиса не указано — искать во всех сервисах (обратная совместимость)
             matching_servers = []
             
             for srv_name, client_data in self.clients.items():
@@ -723,49 +723,49 @@ class MCPManager:
                 for tool in tools:
                     if tool.name == tool_name:
                         matching_servers.append(srv_name)
-                        if not target_server:  # 记录第一个匹配的服务
+                        if not target_server:  # Запомнить первый совпавший сервис
                             target_server = srv_name
                             target_session = client_data["session"]
                         break
             
             if not target_server:
-                raise ValueError(f"工具 {tool_name} 不存在")
+                raise ValueError(f"Инструмент {tool_name} не существует")
             
-            # 如果有多个服务提供同名工具，给出警告
+            # Если несколько сервисов предоставляют одноимённый инструмент — предупредить
             if len(matching_servers) > 1:
-                print(f"⚠️  警告: 工具 {tool_name} 在多个服务中存在: {', '.join(matching_servers)}")
-                print(f"   将使用服务 {target_server}，建议在请求中指定 serverName 参数以避免歧义")
+                print(f"⚠️  Предупреждение: инструмент {tool_name} существует в нескольких сервисах: {', '.join(matching_servers)}")
+                print(f"   Будет использован сервис {target_server}; рекомендуется указывать параметр serverName во избежание неоднозначности")
         
-        # 检查调用次数
+        # Проверить количество вызовов
         call_key = f"{target_server}:{tool_name}"
         call_count = self.tool_call_history.get(call_key, 0)
         
         if call_count >= 3:
-            raise ValueError(f"工具 {tool_name} (服务: {target_server}) 已达到最大调用次数 (3次)")
+            raise ValueError(f"Инструмент {tool_name} (сервис: {target_server}) достиг максимального числа вызовов (3 раза)")
         
         try:
-            # 打印调试信息
-            print(f"[执行工具] 服务: {target_server}, 工具: {tool_name}")
-            print(f"[原始参数] {args}")
-            print(f"[清理后参数] {cleaned_args}")
+            # Вывести отладочную информацию
+            print(f"[Выполнение инструмента] Сервис: {target_server}, Инструмент: {tool_name}")
+            print(f"[Исходные параметры] {args}")
+            print(f"[Очищенные параметры] {cleaned_args}")
             
-            # 调用工具
+            # Вызвать инструмент
             result = await target_session.call_tool(tool_name, cleaned_args)
             
-            # 获取服务配置
+            # Получить конфигурацию сервиса
             server_config = self.clients[target_server]["config"]
             
-            # 将MCP结果转换为可序列化的格式
+            # Преобразовать MCP-результат в сериализуемый формат
             if hasattr(result, 'model_dump'):
-                # 使用Pydantic的model_dump方法（如果可用）
+                # Использовать метод model_dump (если доступен)
                 serializable_result = result.model_dump()
             elif hasattr(result, '__dict__'):
-                # 尝试转换对象为字典
+                # Попробовать преобразовать объект в словарь
                 import copy
                 try:
                     serializable_result = copy.deepcopy(result.__dict__)
                 except Exception:
-                    # 如果deepcopy失败，尝试手动转换
+                    # Если deepcopy не удался, попробовать ручное преобразование
                     serializable_result = {}
                     for attr_name in dir(result):
                         if not attr_name.startswith('_'):
@@ -773,63 +773,63 @@ class MCPManager:
                             if isinstance(attr_value, (str, int, float, bool, list, dict, type(None))):
                                 serializable_result[attr_name] = attr_value
                             else:
-                                # 尝试转换为字符串表示
+                                # Попробовать преобразовать в строковое представление
                                 try:
                                     serializable_result[attr_name] = str(attr_value)
                                 except:
                                     serializable_result[attr_name] = f"<unserializable: {type(attr_value).__name__}>"
             else:
-                # 如果无法转换，直接使用结果
+                # Если преобразовать нельзя, использовать результат напрямую
                 serializable_result = result
             
-            # 使用缓存系统处理结果
+            # Обработать результат через систему кэширования
             cached_result = self.cache_result(serializable_result, server_config)
             
-            # 重置调用计数
+            # Сбросить счётчик вызовов
             self.tool_call_history[call_key] = 0
             
             return cached_result
         
         except Exception as e:
-            # 增加调用计数
+            # Увеличить счётчик вызовов
             self.tool_call_history[call_key] = call_count + 1
             
-            # 打印详细错误信息
-            print(f"[工具执行失败] 服务: {target_server}, 工具: {tool_name}")
-            print(f"[错误类型] {type(e).__name__}")
-            print(f"[错误信息] {str(e)}")
+            # Вывести подробную информацию об ошибке
+            print(f"[Ошибка выполнения инструмента] Сервис: {target_server}, Инструмент: {tool_name}")
+            print(f"[Тип ошибки] {type(e).__name__}")
+            print(f"[Сообщение об ошибке] {str(e)}")
             raise
     
     def reset_tool_call_history(self):
-        """重置工具调用历史"""
+        """Сбросить историю вызовов инструментов"""
         self.tool_call_history.clear()
     
     async def shutdown(self):
-        """关闭所有服务器连接"""
+        """Закрыть все соединения с серверами"""
         for name in list(self.clients.keys()):
             await self.shutdown_server(name)
     
     async def shutdown_server(self, server_name: str):
-        """关闭指定的服务器连接"""
+        """Закрыть соединение с указанным сервером"""
         if server_name not in self.clients:
-            print(f"服务器 {server_name} 不存在，无需关闭")
+            print(f"Сервер {server_name} не существует, закрывать нечего")
             return
         
         client_data = self.clients[server_name]
         
         try:
-            # 创建一个新任务来处理关闭，避免 cancel scope 错误
+            # Создать новую задачу для закрытия, чтобы избежать ошибок cancel scope
             async def cleanup():
                 try:
-                    # 先关闭会话上下文
+                    # Сначала закрыть контекст сессии
                     session_context = client_data.get("session_context")
                     if session_context:
                         try:
                             await session_context.__aexit__(None, None, None)
                         except Exception as e:
-                            print(f"  关闭会话上下文时出错: {e}")
+                            print(f"  Ошибка при закрытии контекста сессии: {e}")
                     
-                    # 根据类型关闭对应的传输层连接
+                    # В зависимости от типа закрыть соответствующий транспортный уровень
                     server_type = client_data.get("type", "stdio")
                     if server_type == "sse":
                         sse_context = client_data.get("sse_context")
@@ -837,60 +837,60 @@ class MCPManager:
                             try:
                                 await sse_context.__aexit__(None, None, None)
                             except Exception as e:
-                                print(f"  关闭 SSE 连接时出错: {e}")
+                                print(f"  Ошибка при закрытии SSE-соединения: {e}")
                     else:
                         stdio_context = client_data.get("stdio_context")
                         if stdio_context:
                             try:
                                 await stdio_context.__aexit__(None, None, None)
                             except Exception as e:
-                                print(f"  关闭 stdio 连接时出错: {e}")
+                                print(f"  Ошибка при закрытии stdio-соединения: {e}")
                 except Exception as e:
-                    print(f"  清理资源时出错: {e}")
+                    print(f"  Ошибка при очистке ресурсов: {e}")
             
-            # 使用 asyncio.create_task 在新任务中执行清理
-            # 但我们不等待它完成，让它在后台运行
+            # Использовать asyncio.create_task для выполнения очистки в новой задаче,
+            # но не ждать её завершения — пусть работает в фоне
             asyncio.create_task(cleanup())
             
-            # 给一点时间让清理开始
+            # Дать немного времени, чтобы очистка началась
             await asyncio.sleep(0.1)
             
-            print(f"已关闭服务器: {server_name}")
+            print(f"Сервер закрыт: {server_name}")
         except Exception as e:
-            print(f"关闭服务器 {server_name} 失败: {e}")
+            print(f"Не удалось закрыть сервер {server_name}: {e}")
         finally:
-            # 无论如何都从字典中移除
+            # В любом случае удалить из словаря
             self.clients.pop(server_name, None)
     
     def _get_cache_directory(self) -> Path:
-        """获取缓存目录路径"""
-        # 根据操作系统确定缓存目录
+        """Получить путь к каталогу кэша"""
+        # Определить каталог кэша в зависимости от ОС
         if sys.platform == "win32":
             cache_dir = Path(os.environ.get("APPDATA", "")) / "mcp-bridge" / "cache"
         elif sys.platform == "darwin":
             cache_dir = Path.home() / "Library" / "Application Support" / "mcp-bridge" / "cache"
-        else:  # Linux and others
+        else:  # Linux и прочие
             cache_dir = Path.home() / ".cache" / "mcp-bridge"
         
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
     
     def _store_in_file_cache(self, content: Any, ttl: int) -> str:
-        """将内容存储到文件缓存并返回ID"""
+        """Сохранить содержимое в файловый кэш и вернуть ID"""
         cache_id = str(uuid.uuid4())
         cache_file = self._get_cache_directory() / f"{cache_id}.txt"
         
-        # 序列化内容
+        # Сериализовать содержимое
         if isinstance(content, str):
             content_str = content
         else:
             content_str = json.dumps(content, ensure_ascii=False, indent=2)
         
-        # 写入文件
+        # Записать в файл
         with open(cache_file, 'w', encoding='utf-8') as f:
             f.write(content_str)
         
-        # 创建元数据文件
+        # Создать файл метаданных
         metadata_file = self._get_cache_directory() / f"{cache_id}.meta"
         metadata = {
             "created_at": time.time(),
@@ -904,33 +904,33 @@ class MCPManager:
         return cache_id
     
     def _get_from_file_cache(self, cache_id: str) -> Optional[Any]:
-        """从文件缓存获取内容"""
+        """Получить содержимое из файлового кэша"""
         cache_file = self._get_cache_directory() / f"{cache_id}.txt"
         metadata_file = self._get_cache_directory() / f"{cache_id}.meta"
         
-        # 检查文件是否存在
+        # Проверить существование файлов
         if not cache_file.exists() or not metadata_file.exists():
             return None
         
-        # 检查过期时间
+        # Проверить срок годности
         try:
             with open(metadata_file, 'r', encoding='utf-8') as f:
                 metadata = json.load(f)
             
             if time.time() > metadata.get("expires_at", 0):
-                # 过期，删除文件
+                # Просрочено — удалить файлы
                 cache_file.unlink(missing_ok=True)
                 metadata_file.unlink(missing_ok=True)
                 return None
         except:
             return None
         
-        # 读取内容
+        # Прочитать содержимое
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # 尝试解析JSON，如果不是JSON则返回原字符串
+            # Попробовать распарсить JSON; если не JSON — вернуть исходную строку
             try:
                 return json.loads(content)
             except json.JSONDecodeError:
@@ -939,11 +939,11 @@ class MCPManager:
             return None
     
     def _store_in_memory_cache(self, content: Any, ttl: int) -> str:
-        """将内容存储到内存缓存并返回ID"""
+        """Сохранить содержимое в кэш памяти и вернуть ID"""
         cache_id = str(uuid.uuid4())
         
         with self.cache_lock:
-            # 清理过期项
+            # Очистить просроченные элементы
             current_time = time.time()
             expired_keys = []
             for key, (_, expire_time) in list(self.memory_cache.items()):
@@ -952,18 +952,18 @@ class MCPManager:
             for key in expired_keys:
                 self.memory_cache.pop(key, None)
             
-            # 如果达到最大容量，移除最旧的项
+            # Если достигнут максимум — удалить самые старые
             while len(self.memory_cache) >= self.max_memory_cache_items:
                 oldest_key = next(iter(self.memory_cache))
                 self.memory_cache.pop(oldest_key, None)
             
-            # 存储新项
+            # Сохранить новый элемент
             self.memory_cache[cache_id] = (content, current_time + ttl)
         
         return cache_id
     
     def _get_from_memory_cache(self, cache_id: str) -> Optional[Any]:
-        """从内存缓存获取内容"""
+        """Получить содержимое из кэша памяти"""
         with self.cache_lock:
             if cache_id not in self.memory_cache:
                 return None
@@ -972,29 +972,29 @@ class MCPManager:
             current_time = time.time()
             
             if current_time > expire_time:
-                # 过期，删除项
+                # Просрочено — удалить элемент
                 self.memory_cache.pop(cache_id, None)
                 return None
             
-            # 移动到末尾（LRU策略）
+            # Переместить в конец (стратегия LRU)
             self.memory_cache.pop(cache_id)
             self.memory_cache[cache_id] = (content, expire_time)
             
             return content
     
     def cache_result(self, content: Any, server_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """根据内容大小和配置决定缓存策略"""
-        # 获取配置参数
+        """Определить стратегию кэширования в зависимости от размера содержимого и конфигурации"""
+        # Получить параметры конфигурации
         if server_config is None:
             server_config = {}
         
-        # 兼容旧配置名称 max_output_length，优先使用新名称 max_output_bytes
+        # Совместимость со старым именем max_output_length; приоритет — новое max_output_bytes
         max_output_bytes = server_config.get("max_output_bytes", server_config.get("max_output_length", 1000))
         cache_large_results = server_config.get("cache_large_results", True)
         result_cache_ttl = server_config.get("result_cache_ttl", 300)
-        max_memory_cache_size = server_config.get("max_memory_cache_size", 10240)  # 10KB
+        max_memory_cache_size = server_config.get("max_memory_cache_size", 10240)  # 10 КБ
         
-        # 序列化内容以计算大小（字节数）
+        # Сериализовать содержимое для расчёта размера (в байтах)
         if isinstance(content, str):
             content_str = content
         else:
@@ -1003,13 +1003,13 @@ class MCPManager:
         content_size = len(content_str.encode('utf-8'))
         
         if cache_large_results and content_size > max_output_bytes:
-            # 内容超过阈值，需要缓存
+            # Содержимое превышает порог — нужно кэшировать
             if content_size <= max_memory_cache_size:
-                # 使用内存缓存
+                # Использовать кэш в памяти
                 cache_id = self._store_in_memory_cache(content, result_cache_ttl)
                 cache_type = "memory"
             else:
-                # 使用文件缓存
+                # Использовать файловый кэш
                 cache_id = self._store_in_file_cache(content, result_cache_ttl)
                 cache_type = "file"
             
@@ -1018,33 +1018,33 @@ class MCPManager:
                 "cache_id": cache_id,
                 "cache_type": cache_type,
                 "total_size": content_size,
-                "message": f"结果过大({content_size}字节)，已存储在{'内存' if cache_type == 'memory' else '文件'}缓存中，使用 /result/{cache_id} 获取完整结果"
+                "message": f"Результат слишком большой ({content_size} байт), сохранён в кэш {'в памяти' if cache_type == 'memory' else 'в файле'}. Используйте /result/{cache_id} для получения полного результата"
             }
         else:
-            # 内容较小，直接返回
+            # Содержимое маленькое — вернуть напрямую
             return {
                 "result_type": "direct",
                 "result": content
             }
     
     def get_cached_result(self, cache_id: str) -> Optional[Any]:
-        """获取缓存结果"""
-        # 首先尝试从内存缓存获取
+        """Получить кэшированный результат"""
+        # Сначала попробовать из кэша памяти
         result = self._get_from_memory_cache(cache_id)
         if result is not None:
             return result
         
-        # 如果内存中没有，尝试从文件缓存获取
+        # Если в памяти нет — попробовать из файлового кэша
         return self._get_from_file_cache(cache_id)
     
     def get_cached_result_partial(self, cache_id: str, start: int = 0, end: Optional[int] = None) -> Dict[str, Any]:
-        """获取缓存结果的部分内容"""
+        """Получить часть кэшированного результата"""
         content = self.get_cached_result(cache_id)
         if content is None:
-            return {"error": "缓存ID不存在或已过期"}
+            return {"error": "Cache ID не существует или истёк"}
         
         if isinstance(content, str):
-            # 字符串内容的分段
+            # Разбиение строкового содержимого
             total_len = len(content)
             actual_end = min(end, total_len) if end is not None else total_len
             actual_start = max(0, start)
@@ -1057,7 +1057,7 @@ class MCPManager:
                 "has_more": actual_end < total_len
             }
         elif isinstance(content, list):
-            # 列表内容的分段
+            # Разбиение содержимого-списка
             total_len = len(content)
             actual_end = min(end, total_len) if end is not None else total_len
             actual_start = max(0, start)
@@ -1070,7 +1070,7 @@ class MCPManager:
                 "has_more": actual_end < total_len
             }
         else:
-            # 其他类型（如dict、对象）：序列化为JSON字符串后分段
+            # Другие типы (dict, объекты): сериализовать в JSON-строку и разбить
             content_str = json.dumps(content, ensure_ascii=False, indent=2)
             total_len = len(content_str)
             actual_end = min(end, total_len) if end is not None else total_len
@@ -1088,36 +1088,36 @@ class MCPManager:
                        case_sensitive: bool = False,
                        max_results: int = 50) -> Dict[str, Any]:
         """
-        在缓存内容中搜索关键词（流式处理，性能优化）
+        Найти ключевое слово в содержимом кэша (потоковая обработка, оптимизация производительности)
         
         Args:
-            cache_id: 缓存ID
-            keyword: 搜索关键词
-            case_sensitive: 是否区分大小写
-            max_results: 最大返回结果数
+            cache_id: Cache ID
+            keyword: Ключевое слово для поиска
+            case_sensitive: Учитывать регистр
+            max_results: Максимальное число результатов
         
         Returns:
-            搜索结果，包含匹配的行号、列号和内容片段
+            Результаты поиска с номерами строк, столбцами и фрагментами содержимого
         """
-        # 首先尝试从内存缓存获取
+        # Сначала попробовать из кэша памяти
         content = self._get_from_memory_cache(cache_id)
         
         if content is not None:
-            # 内存缓存：直接搜索
+            # Кэш в памяти: поиск напрямую
             return self._search_in_memory(content, keyword, case_sensitive, max_results)
         
-        # 尝试从文件缓存获取
+        # Попробовать из файлового кэша
         cache_file = self._get_cache_directory() / f"{cache_id}.txt"
         if cache_file.exists():
-            # 文件缓存：流式读取搜索
+            # Файловый кэш: потоковое чтение и поиск
             return self._search_in_file_streaming(cache_file, keyword, case_sensitive, max_results)
         
-        raise ValueError("缓存不存在或已过期")
+        raise ValueError("Кэш не существует или истёк")
     
     def _search_in_memory(self, content: Any, keyword: str, 
                          case_sensitive: bool, max_results: int) -> Dict[str, Any]:
-        """在内存中的内容进行搜索"""
-        # 转换为字符串
+        """Поиск по содержимому в памяти"""
+        # Преобразовать в строку
         if isinstance(content, str):
             text = content
         else:
@@ -1127,19 +1127,19 @@ class MCPManager:
     
     def _search_in_file_streaming(self, cache_file: Path, keyword: str,
                                   case_sensitive: bool, max_results: int) -> Dict[str, Any]:
-        """流式读取文件并搜索（内存占用恒定）"""
+        """Потоковое чтение файла и поиск (постоянное потребление памяти)"""
         matches = []
         search_keyword = keyword if case_sensitive else keyword.lower()
         line_num = 0
         
         try:
-            # 使用缓冲读取，每次读取 8KB
+            # Использовать буферизованное чтение по 8 КБ
             with open(cache_file, 'r', encoding='utf-8', buffering=8192) as f:
                 for line in f:
                     line_num += 1
                     search_line = line if case_sensitive else line.lower()
                     
-                    # 查找所有匹配位置
+                    # Найти все позиции совпадений
                     pos = 0
                     while True:
                         idx = search_line.find(search_keyword, pos)
@@ -1149,7 +1149,7 @@ class MCPManager:
                         matches.append({
                             "line": line_num,
                             "column": idx,
-                            "content": line.strip()[:200]  # 限制长度避免过长
+                            "content": line.strip()[:200]  # Ограничить длину во избежание избыточности
                         })
                         
                         if len(matches) >= max_results:
@@ -1160,7 +1160,7 @@ class MCPManager:
                     if len(matches) >= max_results:
                         break
         except Exception as e:
-            print(f"流式搜索文件失败: {e}")
+            print(f"Ошибка потокового поиска в файле: {e}")
             raise
         
         return {
@@ -1172,7 +1172,7 @@ class MCPManager:
     
     def _search_in_text(self, text: str, keyword: str,
                        case_sensitive: bool, max_results: int) -> Dict[str, Any]:
-        """在文本中搜索关键词"""
+        """Найти ключевое слово в тексте"""
         matches = []
         search_keyword = keyword if case_sensitive else keyword.lower()
         lines = text.split('\n')
@@ -1180,7 +1180,7 @@ class MCPManager:
         for line_num, line in enumerate(lines, 1):
             search_line = line if case_sensitive else line.lower()
             
-            # 查找所有匹配位置
+            # Найти все позиции совпадений
             pos = 0
             while True:
                 idx = search_line.find(search_keyword, pos)
@@ -1190,7 +1190,7 @@ class MCPManager:
                 matches.append({
                     "line": line_num,
                     "column": idx,
-                    "content": line.strip()[:200]  # 限制长度
+                    "content": line.strip()[:200]  # Ограничить длину
                 })
                 
                 if len(matches) >= max_results:
@@ -1211,21 +1211,21 @@ class MCPManager:
     def get_context_around_line(self, cache_id: str, line_num: int,
                                 context_lines: int = 3) -> Dict[str, Any]:
         """
-        获取指定行及其上下文
+        Получить указанную строку и её контекст
         
         Args:
-            cache_id: 缓存ID
-            line_num: 目标行号（从1开始）
-            context_lines: 上下文行数
+            cache_id: Cache ID
+            line_num: Номер целевой строки (с 1)
+            context_lines: Число строк контекста
         
         Returns:
-            包含目标行及上下文的内容
+            Содержимое с целевой строкой и контекстом
         """
         content = self.get_cached_result(cache_id)
         if content is None:
-            raise ValueError("缓存不存在或已过期")
+            raise ValueError("Кэш не существует или истёк")
         
-        # 转换为字符串
+        # Преобразовать в строку
         if isinstance(content, str):
             text = content
         else:
@@ -1234,11 +1234,11 @@ class MCPManager:
         lines = text.split('\n')
         total_lines = len(lines)
         
-        # 计算上下文范围
+        # Рассчитать диапазон контекста
         start_line = max(1, line_num - context_lines)
         end_line = min(total_lines, line_num + context_lines)
         
-        # 提取上下文内容
+        # Извлечь содержимое контекста
         context_content = '\n'.join(lines[start_line-1:end_line])
         
         return {
@@ -1250,30 +1250,30 @@ class MCPManager:
         }
     
     async def restart_server(self, server_name: str, server_config: Optional[Dict[str, Any]] = None):
-        """重启指定的服务器"""
-        # 如果没有提供配置，使用缓存的配置
+        """Перезапустить указанный сервер"""
+        # Если конфигурация не передана — использовать кэшированную
         if server_config is None:
             if server_name not in self.config_cache.get("mcpServers", {}):
-                raise ValueError(f"服务器 {server_name} 的配置不存在")
+                raise ValueError(f"Конфигурация сервера {server_name} не существует")
             server_config = self.config_cache["mcpServers"][server_name]
         
-        # 先关闭
+        # Сначала закрыть
         await self.shutdown_server(server_name)
         
-        # 等待一下确保资源释放
+        # Подождать немного для гарантии освобождения ресурсов
         await asyncio.sleep(0.5)
         
-        # 重新初始化
+        # Повторно инициализировать
         await self.init_server(server_name, server_config)
 
 
-# 全局管理器实例
+# Глобальный экземпляр менеджера
 manager: Optional[MCPManager] = None
 config_path: Optional[Path] = None
 
 
 def log(message: str, log_type: str = "info", *args):
-    """日志输出"""
+    """Вывод журнала"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     color = "\033[32m" if log_type == "info" else "\033[31m"
     reset = "\033[0m"
@@ -1282,63 +1282,63 @@ def log(message: str, log_type: str = "info", *args):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
+    """Управление жизненным циклом приложения"""
     global manager, config_path
     
-    # 启动时初始化
+    # Инициализация при запуске
     try:
         manager = MCPManager()
         
-        # 获取配置路径
+        # Получить путь к конфигурации
         env_config_path = os.environ.get("MCP_CONFIG_PATH", "")
         if env_config_path:
             config_path = Path(env_config_path)
         else:
             config_path = get_config_path()
         
-        print(f"读取配置文件: {config_path}")
+        print(f"Чтение файла конфигурации: {config_path}")
         config = await manager.load_config(config_path)
         await manager.init_all_servers(config)
         
-        print(f"\n🚀 MCP 桥接服务已启动")
-        print(f"   地址: http://localhost:{PORT}")
-        print(f"   已加载服务数量: {len(manager.get_services())}")
-        print(f"\n可用接口:")
-        print(f"   GET  /health                     - 健康检查")
-        print(f"   GET  /tools                      - 获取所有[服务]的列表和描述")
-        print(f"   GET  /tools?serverName=<name>    - 获取指定服务下的[工具]列表")
-        print(f"   GET  /tool-detail?toolName=<n>   - 获取工具的详细参数定义")
-        print(f"   POST /execute                    - 执行工具（可选 serverName 参数）")
-        print(f"   POST /result                     - 获取缓存结果（分段）")
-        print(f"   GET  /result/{'{cache_id}'}            - 获取缓存结果（分段，简单接口）")
-        print(f"   POST /search-cache               - 在缓存中搜索关键词")
-        print(f"   POST /get-cache-context          - 获取缓存指定行的上下文")
-        print(f"   GET  /config                     - 读取配置文件内容")
-        print(f"   POST /config                     - 更新配置文件并重载")
-        print(f"   POST /reload                     - 手动重载所有服务")
-        print(f"   POST /restart-server             - 重启指定服务")
-        print(f"   POST /shutdown-server            - 关闭指定服务")
-        print(f"   POST /reset-history              - 重置调用历史\n")
+        print(f"\n🚀 MCP-мост запущен")
+        print(f"   Адрес: http://localhost:{PORT}")
+        print(f"   Количество загруженных сервисов: {len(manager.get_services())}")
+        print(f"\nДоступные интерфейсы:")
+        print(f"   GET  /health                     - Проверка состояния")
+        print(f"   GET  /tools                      - Получить список и описания всех [сервисов]")
+        print(f"   GET  /tools?serverName=<name>    - Получить список [инструментов] указанного сервиса")
+        print(f"   GET  /tool-detail?toolName=<n>   - Получить подробное определение параметров инструмента")
+        print(f"   POST /execute                    - Выполнить инструмент (необязательный параметр serverName)")
+        print(f"   POST /result                     - Получить кэшированный результат (по частям)")
+        print(f"   GET  /result/{'{cache_id}'}            - Получить кэшированный результат (по частям, простой интерфейс)")
+        print(f"   POST /search-cache               - Поиск ключевого слова в кэше")
+        print(f"   POST /get-cache-context          - Получить контекст указанной строки из кэша")
+        print(f"   GET  /config                     - Прочитать содержимое файла конфигурации")
+        print(f"   POST /config                     - Обновить файл конфигурации и перезагрузить")
+        print(f"   POST /reload                     - Вручную перезагрузить все сервисы")
+        print(f"   POST /restart-server             - Перезапустить указанный сервис")
+        print(f"   POST /shutdown-server            - Закрыть указанный сервис")
+        print(f"   POST /reset-history              - Сбросить историю вызовов\n")
     
     except Exception as e:
-        print(f"启动失败: {e}")
+        print(f"Ошибка запуска: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
     
     yield
     
-    # 关闭时清理
+    # Очистка при закрытии
     if manager:
-        print("\n正在关闭服务...")
+        print("\nЗакрытие сервисов...")
         await manager.shutdown()
-        print("服务器已关闭")
+        print("Сервер закрыт")
 
 
-# 使用 lifespan 创建 FastAPI 应用
+# Создать приложение FastAPI с использованием lifespan
 app = FastAPI(title="MCP Bridge Server", version="1.0.0", lifespan=lifespan)
 
-# 配置CORS
+# Настроить CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -1350,20 +1350,20 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
-    """健康检查"""
+    """Проверка состояния"""
     return {"status": "ok", "timestamp": datetime.now().timestamp()}
 
 
 @app.get("/tools")
 async def get_tools(serverName: Optional[str] = Query(None)):
-    """获取工具列表"""
+    """Получить список инструментов"""
     try:
         if serverName:
-            # 获取指定服务器的工具
+            # Получить инструменты указанного сервера
             tools = manager.get_tools_by_server(serverName)
             return {"success": True, "tools": tools}
         else:
-            # 获取所有服务列表
+            # Получить список всех сервисов
             services = manager.get_services()
             return {"success": True, "services": services}
     
@@ -1375,17 +1375,17 @@ async def get_tools(serverName: Optional[str] = Query(None)):
 
 @app.get("/tool-detail")
 async def get_tool_detail(
-    toolName: str = Query(..., description="工具名称"),
-    serverName: Optional[str] = Query(None, description="服务名称（可选）")
+    toolName: str = Query(..., description="Имя инструмента"),
+    serverName: Optional[str] = Query(None, description="Имя сервиса (необязательно)")
 ):
     """
-    获取工具的详细信息
+    Получить подробную информацию об инструменте
     
-    参数:
-        - toolName: 工具名称（必需）
-        - serverName: 服务名称（可选，如果有重名工具建议指定）
+    Аргументы:
+        - toolName: Имя инструмента (обязательно)
+        - serverName: Имя сервиса (необязательно; при одноимённых инструментах рекомендуется указывать)
     
-    返回工具的完整定义，包括参数 schema，用于调试和了解工具的参数要求
+    Возвращает полное определение инструмента, включая схему параметров, для отладки и понимания требований к параметрам
     """
     try:
         detail = manager.get_tool_detail(toolName, serverName)
@@ -1400,30 +1400,30 @@ async def get_tool_detail(
 @app.post("/execute")
 async def execute_tool(request: ExecuteRequest):
     """
-    执行工具
+    Выполнить инструмент
     
-    请求体:
-        - name: 工具名称（必需）
-        - arguments: 工具参数（可选，默认为空对象）
-        - serverName: 服务名称（可选，指定从哪个服务调用工具）
+    Тело запроса:
+        - name: Имя инструмента (обязательно)
+        - arguments: Параметры инструмента (необязательно, по умолчанию пустой объект)
+        - serverName: Имя сервиса (необязательно; указывает, из какого сервиса вызывать инструмент)
     
-    示例:
-        不指定服务（兼容旧版本）:
+    Примеры:
+        Без указания сервиса (для обратной совместимости):
         {"name": "read_file", "arguments": {"path": "/tmp/test.txt"}}
         
-        指定服务（推荐，避免重名工具冲突）:
+        С указанием сервиса (рекомендуется, чтобы избежать конфликтов одноимённых инструментов):
         {"name": "read_file", "arguments": {"path": "/tmp/test.txt"}, "serverName": "filesystem"}
     """
     try:
         result = await manager.execute_tool(
             request.name, 
             request.arguments,
-            request.serverName  # 传递可选的服务名称
+            request.serverName  # Передать необязательное имя сервиса
         )
         
-        # 检查结果类型
+        # Проверить тип результата
         if isinstance(result, dict) and result.get("result_type") == "cached_reference":
-            # 返回缓存引用
+            # Вернуть ссылку на кэш
             return {
                 "success": True,
                 "result_type": result["result_type"],
@@ -1433,7 +1433,7 @@ async def execute_tool(request: ExecuteRequest):
                 "message": result["message"]
             }
         else:
-            # 返回直接结果
+            # Вернуть прямой результат
             content = result.get("result") if isinstance(result, dict) and "result" in result else result
             return {"success": True, "result": content}
     
@@ -1445,35 +1445,35 @@ async def execute_tool(request: ExecuteRequest):
             "type": type(e).__name__,
             "traceback": error_traceback
         }
-        log(f"工具执行错误: {error_detail}", "error")
+        log(f"Ошибка выполнения инструмента: {error_detail}", "error")
         raise HTTPException(status_code=500, detail=error_detail)
 
 
 @app.get("/config")
 async def get_config():
-    """读取配置文件"""
+    """Прочитать файл конфигурации"""
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
         return {"success": True, "config": config}
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取配置文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"Не удалось прочитать файл конфигурации: {e}")
 
 
 @app.post("/config")
 async def update_config(request: ConfigUpdateRequest):
-    """更新配置文件并重载"""
+    """Обновить файл конфигурации и перезагрузить"""
     try:
-        # 保存配置
+        # Сохранить конфигурацию
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(request.config, f, indent=2, ensure_ascii=False)
         
-        # 重载服务
+        # Перезагрузить сервисы
         await manager.shutdown()
         await manager.init_all_servers(request.config)
         
-        return {"success": True, "message": "配置已保存并重载"}
+        return {"success": True, "message": "Конфигурация сохранена и перезагружена"}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1481,13 +1481,13 @@ async def update_config(request: ConfigUpdateRequest):
 
 @app.post("/reload")
 async def reload_config():
-    """重载配置"""
+    """Перезагрузить конфигурацию"""
     try:
         await manager.shutdown()
         config = await manager.load_config(config_path)
         await manager.init_all_servers(config)
         
-        return {"success": True, "message": "配置已重载"}
+        return {"success": True, "message": "Конфигурация перезагружена"}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1495,27 +1495,27 @@ async def reload_config():
 
 @app.post("/reset-history")
 async def reset_history():
-    """重置调用历史"""
+    """Сбросить историю вызовов"""
     manager.reset_tool_call_history()
-    return {"success": True, "message": "调用历史已重置"}
+    return {"success": True, "message": "История вызовов сброшена"}
 
 
 @app.post("/restart-server")
 async def restart_server(request: ServerRestartRequest):
-    """重启指定的服务器"""
+    """Перезапустить указанный сервер"""
     try:
         server_name = request.serverName
         
-        # 检查服务是否存在
+        # Проверить существование сервиса
         if server_name not in manager.clients and server_name not in manager.config_cache.get("mcpServers", {}):
-            raise HTTPException(status_code=404, detail=f"服务 {server_name} 不存在")
+            raise HTTPException(status_code=404, detail=f"Сервис {server_name} не существует")
         
-        # 重启服务
+        # Перезапустить сервис
         await manager.restart_server(server_name, request.config)
         
         return {
             "success": True,
-            "message": f"服务 {server_name} 已重启",
+            "message": f"Сервис {server_name} перезапущен",
             "toolCount": len(manager.clients[server_name]["tools"]) if server_name in manager.clients else 0
         }
     
@@ -1529,20 +1529,20 @@ async def restart_server(request: ServerRestartRequest):
 
 @app.post("/shutdown-server")
 async def shutdown_server(request: ServerRestartRequest):
-    """关闭指定的服务器"""
+    """Закрыть указанный сервер"""
     try:
         server_name = request.serverName
         
-        # 检查服务是否存在
+        # Проверить существование сервиса
         if server_name not in manager.clients:
-            raise HTTPException(status_code=404, detail=f"服务 {server_name} 不存在或未运行")
+            raise HTTPException(status_code=404, detail=f"Сервис {server_name} не существует или не запущен")
         
-        # 关闭服务
+        # Закрыть сервис
         await manager.shutdown_server(server_name)
         
         return {
             "success": True,
-            "message": f"服务 {server_name} 已关闭"
+            "message": f"Сервис {server_name} закрыт"
         }
     
     except Exception as e:
@@ -1553,7 +1553,7 @@ async def shutdown_server(request: ServerRestartRequest):
 
 @app.post("/result")
 async def get_cached_result(request: GetResultRequest):
-    """获取缓存的结果"""
+    """Получить кэшированный результат"""
     try:
         result = manager.get_cached_result_partial(request.cache_id, request.start, request.end)
         if "error" in result:
@@ -1575,7 +1575,7 @@ async def get_cached_result(request: GetResultRequest):
 
 @app.get("/result/{cache_id}")
 async def get_cached_result_simple(cache_id: str, start: int = 0, end: Optional[int] = None):
-    """获取缓存结果的简单接口"""
+    """Простой интерфейс для получения кэшированного результата"""
     try:
         result = manager.get_cached_result_partial(cache_id, start, end)
         if "error" in result:
@@ -1598,16 +1598,16 @@ async def get_cached_result_simple(cache_id: str, start: int = 0, end: Optional[
 @app.post("/search-cache")
 async def search_cache(request: SearchCacheRequest):
     """
-    在缓存内容中搜索关键词
+    Найти ключевое слово в содержимом кэша
     
-    请求体:
-        - cache_id: 缓存ID
-        - keyword: 搜索关键词
-        - case_sensitive: 是否区分大小写（可选，默认false）
-        - max_results: 最大返回结果数（可选，默认50）
+    Тело запроса:
+        - cache_id: Cache ID
+        - keyword: Ключевое слово для поиска
+        - case_sensitive: Учитывать регистр (необязательно, по умолчанию false)
+        - max_results: Максимальное число результатов (необязательно, по умолчанию 50)
     
-    返回:
-        搜索结果，包含匹配的行号、列号和内容片段
+    Возвращает:
+        Результаты поиска с номерами строк, столбцами и фрагментами содержимого
     """
     try:
         result = manager.search_in_cache(
@@ -1628,15 +1628,15 @@ async def search_cache(request: SearchCacheRequest):
 @app.post("/get-cache-context")
 async def get_cache_context(request: GetCacheContextRequest):
     """
-    获取缓存中指定行的上下文
+    Получить контекст указанной строки из кэша
     
-    请求体:
-        - cache_id: 缓存ID
-        - line_num: 目标行号（从1开始）
-        - context_lines: 上下文行数（可选，默认3）
+    Тело запроса:
+        - cache_id: Cache ID
+        - line_num: Номер целевой строки (с 1)
+        - context_lines: Число строк контекста (необязательно, по умолчанию 3)
     
-    返回:
-        目标行及其上下文内容
+    Возвращает:
+        Целевую строку и её контекст
     """
     try:
         result = manager.get_context_around_line(
@@ -1654,18 +1654,18 @@ async def get_cache_context(request: GetCacheContextRequest):
 
 
 def signal_handler(sig, frame):
-    """处理终止信号"""
-    print("\n接收到终止信号，正在关闭...")
+    """Обработка сигнала завершения"""
+    print("\nПолучен сигнал завершения, выполняется закрытие...")
     sys.exit(0)
 
 
 if __name__ == "__main__":
     import argparse
     
-    # 解析命令行参数
+    # Разобрать аргументы командной строки
     parser = argparse.ArgumentParser(
         description=f'MCP Bridge Server v{__version__}',
-        epilog='详细文档: https://github.com/your-repo/mcp-bridge-server'
+        epilog='Подробная документация: https://github.com/your-repo/mcp-bridge-server'
     )
     parser.add_argument(
         '--version',
@@ -1676,42 +1676,42 @@ if __name__ == "__main__":
         '--port', 
         type=int, 
         default=PORT, 
-        help=f'服务器端口 (默认: {PORT})'
+        help=f'Порт сервера (по умолчанию: {PORT})'
     )
     parser.add_argument(
         '--auto-kill-port',
         action='store_true',
-        help='自动结束占用端口的进程'
+        help='Автоматически завершать процесс, занимающий порт'
     )
     parser.add_argument(
         '--config',
         type=str,
-        help='配置文件路径'
+        help='Путь к файлу конфигурации'
     )
     args = parser.parse_args()
     
-    # 更新端口
+    # Обновить порт
     PORT = args.port
     
-    # 设置配置文件路径环境变量
+    # Установить переменную окружения с путём к конфигурации
     if args.config:
         os.environ['MCP_CONFIG_PATH'] = args.config
     
-    # 检查端口
+    # Проверить порт
     print(f"MCP Bridge Server v{__version__}")
-    print(f"正在检查端口 {PORT}...")
+    print(f"Проверка порта {PORT}...")
     
     if not check_and_handle_port(PORT, args.auto_kill_port):
-        print("\n无法启动服务器: 端口不可用")
+        print("\nНе удалось запустить сервер: порт недоступен")
         sys.exit(1)
     
-    print(f"✓ 端口 {PORT} 可用\n")
+    print(f"✓ Порт {PORT} доступен\n")
     
-    # 注册信号处理
+    # Зарегистрировать обработчики сигналов
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # 启动服务器
+    # Запустить сервер
     try:
         uvicorn.run(
             app,
@@ -1721,8 +1721,8 @@ if __name__ == "__main__":
         )
     except OSError as e:
         if "address already in use" in str(e).lower():
-            print(f"\n✗ 错误: 端口 {PORT} 已被占用")
-            print(f"   请使用 --port 参数指定其他端口，或使用 --auto-kill-port 自动结束占用进程")
+            print(f"\n✗ Ошибка: порт {PORT} уже занят")
+            print(f"   Используйте параметр --port для указания другого порта или --auto-kill-port для автоматического завершения занимающего процесса")
         else:
-            print(f"\n✗ 启动失败: {e}")
+            print(f"\n✗ Ошибка запуска: {e}")
         sys.exit(1)

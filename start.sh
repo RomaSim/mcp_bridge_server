@@ -1,43 +1,43 @@
 #!/bin/bash
-# MCP Bridge Server 启动脚本 (Linux/Mac)
+# Скрипт запуска MCP Bridge Server (Linux/Mac)
 
 echo "========================================"
-echo "MCP Bridge Server 启动器"
+echo "Средство запуска MCP Bridge Server"
 echo "========================================"
 echo
 
-# 检查 Python 是否安装
+# Проверить, установлен ли Python
 if ! command -v python3 &> /dev/null; then
-    echo "[错误] 未找到 Python3，请先安装 Python 3.8+"
+    echo "[Ошибка] Python3 не найден. Сначала установите Python 3.8+"
     exit 1
 fi
 
-echo "选择启动模式:"
+echo "Выберите режим запуска:"
 echo
-echo "  1. 默认启动 (交互式，端口 3849)"
-echo "  2. 自动结束占用进程 (端口 3849)"
-echo "  3. 自定义端口启动"
-echo "  4. 查看帮助"
-echo "  5. 退出"
+echo "  1. Запуск по умолчанию (интерактивный, порт 3849)"
+echo "  2. Автоматически завершить процесс, занимающий порт (порт 3849)"
+echo "  3. Запуск с пользовательским портом"
+echo "  4. Просмотр справки"
+echo "  5. Выход"
 echo
 
-read -p "请输入选项 (1-5): " choice
+read -p "Введите вариант (1-5): " choice
 
 case $choice in
     1)
         echo
-        echo "正在以交互模式启动..."
+        echo "Запуск в интерактивном режиме..."
         python3 utils/mcp_bridge.py
         ;;
     2)
         echo
-        echo "正在启动并自动处理端口占用..."
+        echo "Запуск с автоматическим завершением процесса, занимающего порт..."
         python3 utils/mcp_bridge.py --auto-kill-port
         ;;
     3)
         echo
-        read -p "请输入端口号: " port
-        read -p "是否自动结束占用进程? (y/n): " auto_kill
+        read -p "Введите номер порта: " port
+        read -p "Автоматически завершить процесс, занимающий порт? (y/n): " auto_kill
         
         if [[ "$auto_kill" == "y" || "$auto_kill" == "Y" ]]; then
             python3 utils/mcp_bridge.py --port $port --auto-kill-port
@@ -49,14 +49,14 @@ case $choice in
         echo
         python3 utils/mcp_bridge.py --help
         echo
-        read -p "按回车键继续..."
+        read -p "Нажмите Enter для продолжения..."
         ;;
     5)
         exit 0
         ;;
     *)
         echo
-        echo "[错误] 无效的选项"
+        echo "[Ошибка] Неверный вариант"
         exit 1
         ;;
 esac

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-测试单独重启服务功能
+Тестирование функции отдельного перезапуска сервиса
 """
 
 import requests
@@ -9,29 +9,29 @@ import json
 BASE_URL = "http://localhost:3849"
 
 def test_restart_server():
-    """测试重启单个服务"""
+    """Тестирование перезапуска отдельного сервиса"""
     
-    print("=== 测试单独重启服务功能 ===\n")
+    print("=== Тестирование функции отдельного перезапуска сервиса ===\n")
     
-    # 1. 获取当前所有服务
-    print("1. 获取当前所有服务...")
+    # 1. Получить все текущие сервисы
+    print("1. Получение всех текущих сервисов...")
     response = requests.get(f"{BASE_URL}/tools")
     if response.status_code == 200:
         services = response.json().get("services", [])
-        print(f"   当前有 {len(services)} 个服务:")
+        print(f"   В настоящее время {len(services)} сервисов:")
         for service in services:
             print(f"   - {service['name']}: {service['description']}")
     else:
-        print(f"   获取服务列表失败: {response.status_code}")
+        print(f"   Не удалось получить список сервисов: {response.status_code}")
         return
     
     if not services:
-        print("   没有可用的服务")
+        print("   Нет доступных сервисов")
         return
     
-    # 2. 选择第一个服务进行重启测试
+    # 2. Выбрать первый сервис для тестирования перезапуска
     target_server = services[0]['name']
-    print(f"\n2. 重启服务: {target_server}")
+    print(f"\n2. Перезапуск сервиса: {target_server}")
     
     response = requests.post(
         f"{BASE_URL}/restart-server",
@@ -41,44 +41,44 @@ def test_restart_server():
     if response.status_code == 200:
         result = response.json()
         print(f"   ✓ {result['message']}")
-        print(f"   ✓ 工具数量: {result.get('toolCount', 0)}")
+        print(f"   ✓ Количество инструментов: {result.get('toolCount', 0)}")
     else:
-        print(f"   ✗ 重启失败: {response.status_code}")
-        print(f"   错误: {response.text}")
+        print(f"   ✗ Ошибка перезапуска: {response.status_code}")
+        print(f"   Ошибка: {response.text}")
         return
     
-    # 3. 验证服务是否正常
-    print(f"\n3. 验证服务是否正常...")
+    # 3. Проверить, работает ли сервис нормально
+    print(f"\n3. Проверка работоспособности сервиса...")
     response = requests.get(f"{BASE_URL}/tools?serverName={target_server}")
     if response.status_code == 200:
         tools = response.json().get("tools", [])
-        print(f"   ✓ 服务正常，有 {len(tools)} 个工具")
+        print(f"   ✓ Сервис работает нормально, инструментов: {len(tools)}")
     else:
-        print(f"   ✗ 服务异常: {response.status_code}")
+        print(f"   ✗ Ошибка сервиса: {response.status_code}")
 
 
 def test_shutdown_server():
-    """测试关闭单个服务"""
+    """Тестирование закрытия отдельного сервиса"""
     
-    print("\n\n=== 测试关闭单个服务功能 ===\n")
+    print("\n\n=== Тестирование функции закрытия отдельного сервиса ===\n")
     
-    # 1. 获取当前所有服务
-    print("1. 获取当前所有服务...")
+    # 1. Получить все текущие сервисы
+    print("1. Получение всех текущих сервисов...")
     response = requests.get(f"{BASE_URL}/tools")
     if response.status_code == 200:
         services = response.json().get("services", [])
-        print(f"   当前有 {len(services)} 个服务")
+        print(f"   В настоящее время {len(services)} сервисов")
     else:
-        print(f"   获取服务列表失败: {response.status_code}")
+        print(f"   Не удалось получить список сервисов: {response.status_code}")
         return
     
     if len(services) < 2:
-        print("   服务数量不足，跳过关闭测试")
+        print("   Недостаточно сервисов, тест закрытия пропущен")
         return
     
-    # 2. 关闭第二个服务
+    # 2. Закрыть второй сервис
     target_server = services[1]['name']
-    print(f"\n2. 关闭服务: {target_server}")
+    print(f"\n2. Закрытие сервиса: {target_server}")
     
     response = requests.post(
         f"{BASE_URL}/shutdown-server",
@@ -89,35 +89,35 @@ def test_shutdown_server():
         result = response.json()
         print(f"   ✓ {result['message']}")
     else:
-        print(f"   ✗ 关闭失败: {response.status_code}")
-        print(f"   错误: {response.text}")
+        print(f"   ✗ Ошибка закрытия: {response.status_code}")
+        print(f"   Ошибка: {response.text}")
         return
     
-    # 3. 验证服务已关闭
-    print(f"\n3. 验证服务列表...")
+    # 3. Проверить, что сервис закрыт
+    print(f"\n3. Проверка списка сервисов...")
     response = requests.get(f"{BASE_URL}/tools")
     if response.status_code == 200:
         services_after = response.json().get("services", [])
-        print(f"   当前有 {len(services_after)} 个服务 (之前: {len(services)})")
+        print(f"   В настоящее время {len(services_after)} сервисов (было: {len(services)})")
         if len(services_after) == len(services) - 1:
-            print(f"   ✓ 服务 {target_server} 已成功关闭")
+            print(f"   ✓ Сервис {target_server} успешно закрыт")
         else:
-            print(f"   ⚠ 服务数量不符合预期")
+            print(f"   ⚠ Количество сервисов не соответствует ожидаемому")
 
 
 if __name__ == "__main__":
     try:
-        # 先测试重启
+        # Сначала тестировать перезапуск
         test_restart_server()
         
-        # 再测试关闭
-        # test_shutdown_server()  # 如果想测试关闭功能，取消注释
+        # Затем тестировать закрытие
+        # test_shutdown_server()  # Если хотите протестировать закрытие, раскомментируйте
         
-        print("\n\n测试完成！")
+        print("\n\nТестирование завершено!")
         
     except requests.exceptions.ConnectionError:
-        print("错误: 无法连接到服务器，请确保 MCP Bridge Server 正在运行")
+        print("Ошибка: не удалось подключиться к серверу. Убедитесь, что MCP Bridge Server запущен")
     except Exception as e:
-        print(f"测试出错: {e}")
+        print(f"Ошибка тестирования: {e}")
         import traceback
         traceback.print_exc()

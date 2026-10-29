@@ -1,44 +1,44 @@
 #!/bin/bash
-# MCP Bridge Server 打包脚本 (Linux/Mac)
+# Скрипт сборки MCP Bridge Server (Linux/Mac)
 
 echo "========================================"
-echo "MCP Bridge Server 打包工具"
+echo "Средство сборки MCP Bridge Server"
 echo "========================================"
 echo
 
-# 检查 Python
+# Проверить Python
 if ! command -v python3 &> /dev/null; then
-    echo "[错误] 未找到 Python3"
+    echo "[Ошибка] Python3 не найден"
     exit 1
 fi
 
-# 检查 PyInstaller
+# Проверить PyInstaller
 if ! python3 -c "import PyInstaller" &> /dev/null; then
-    echo "[警告] 未安装 PyInstaller，正在安装..."
+    echo "[Предупреждение] PyInstaller не установлен, выполняется установка..."
     pip3 install pyinstaller
 fi
 
-echo "选择打包选项:"
+echo "Выберите вариант сборки:"
 echo
-echo "  1. 单文件打包 (推荐，便于分发)"
-echo "  2. 目录打包 (启动更快)"
-echo "  3. 使用 spec 文件打包 (包含所有优化)"
-echo "  4. 清理构建文件"
-echo "  5. 退出"
+echo "  1. Сборка в один файл (рекомендуется, удобно для распространения)"
+echo "  2. Сборка в каталог (быстрее запуск)"
+echo "  3. Сборка с использованием spec-файла (включает все оптимизации)"
+echo "  4. Очистить файлы сборки"
+echo "  5. Выход"
 echo
 
-read -p "请输入选项 (1-5): " choice
+read -p "Введите вариант (1-5): " choice
 
 case $choice in
     1)
         echo
-        echo "正在进行单文件打包..."
+        echo "Выполняется сборка в один файл..."
         echo
         
-        # 清理旧文件
+        # Очистить старые файлы
         rm -rf build dist
         
-        # 打包
+        # Сборка
         pyinstaller --onefile \
             --name mcp-bridge-server \
             --add-data "README.md:." \
@@ -54,13 +54,13 @@ case $choice in
             utils/mcp_bridge.py
         
         echo
-        echo "✓ 打包完成！"
-        echo "输出文件: dist/mcp-bridge-server"
+        echo "✓ Сборка завершена!"
+        echo "Выходной файл: dist/mcp-bridge-server"
         
-        # 添加执行权限
+        # Добавить права на выполнение
         chmod +x dist/mcp-bridge-server
         
-        # 生成版本信息
+        # Сгенерировать информацию о версии
         VERSION="v1.0.0"
         PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
         ARCH=$(uname -m)
@@ -74,28 +74,28 @@ case $choice in
         FINAL_NAME="mcp-bridge-server-${VERSION}-${PLATFORM}-${ARCH}"
         
         echo
-        read -p "是否重命名为发布版本名称? (y/n): " rename
+        read -p "Переименовать в имя релизной версии? (y/n): " rename
         if [[ "$rename" == "y" || "$rename" == "Y" ]]; then
             mv dist/mcp-bridge-server "dist/${FINAL_NAME}"
-            echo "✓ 已重命名为: ${FINAL_NAME}"
+            echo "✓ Переименовано в: ${FINAL_NAME}"
             
-            # 生成校验和
+            # Сгенерировать контрольную сумму
             cd dist
             sha256sum "${FINAL_NAME}" > SHA256SUMS.txt
-            echo "✓ 已生成 SHA256 校验和"
+            echo "✓ Контрольная сумма SHA256 сгенерирована"
             cd ..
         fi
         ;;
         
     2)
         echo
-        echo "正在进行目录打包..."
+        echo "Выполняется сборка в каталог..."
         echo
         
-        # 清理旧文件
+        # Очистить старые файлы
         rm -rf build dist
         
-        # 打包
+        # Сборка
         pyinstaller --onedir \
             --name mcp-bridge-server \
             --add-data "README.md:." \
@@ -109,51 +109,51 @@ case $choice in
             utils/mcp_bridge.py
         
         echo
-        echo "✓ 打包完成！"
-        echo "输出目录: dist/mcp-bridge-server/"
+        echo "✓ Сборка завершена!"
+        echo "Выходной каталог: dist/mcp-bridge-server/"
         
         chmod +x dist/mcp-bridge-server/mcp-bridge-server
         ;;
         
     3)
         echo
-        echo "使用 spec 文件打包..."
+        echo "Сборка с использованием spec-файла..."
         echo
         
-        # 清理旧文件
+        # Очистить старые файлы
         rm -rf build dist
         
-        # 打包
+        # Сборка
         pyinstaller mcp_bridge.spec
         
         echo
-        echo "✓ 打包完成！"
-        echo "输出文件: dist/mcp-bridge-server"
+        echo "✓ Сборка завершена!"
+        echo "Выходной файл: dist/mcp-bridge-server"
         
         chmod +x dist/mcp-bridge-server
         ;;
         
     4)
         echo
-        echo "正在清理构建文件..."
+        echo "Очистка файлов сборки..."
         
         if [ -d "build" ]; then
             rm -rf build
-            echo "✓ 已删除 build 目录"
+            echo "✓ Каталог build удалён"
         fi
         
         if [ -d "dist" ]; then
             rm -rf dist
-            echo "✓ 已删除 dist 目录"
+            echo "✓ Каталог dist удалён"
         fi
         
         if [ -f "mcp-bridge-server.spec" ] && [ ! -f "mcp_bridge.spec" ]; then
             rm -f mcp-bridge-server.spec
-            echo "✓ 已删除临时 spec 文件"
+            echo "✓ Временный spec-файл удалён"
         fi
         
         echo
-        echo "✓ 清理完成"
+        echo "✓ Очистка завершена"
         ;;
         
     5)
@@ -162,7 +162,7 @@ case $choice in
         
     *)
         echo
-        echo "[错误] 无效的选项"
+        echo "[Ошибка] Неверный вариант"
         exit 1
         ;;
 esac
@@ -171,13 +171,13 @@ echo
 echo "========================================"
 echo
 
-# 询问是否测试
+# Спросить, нужно ли тестирование
 if [ -f "dist/mcp-bridge-server" ]; then
-    read -p "是否测试打包后的程序? (y/n): " test
+    read -p "Протестировать собранную программу? (y/n): " test
     if [[ "$test" == "y" || "$test" == "Y" ]]; then
         echo
-        echo "正在启动程序..."
-        echo "按 Ctrl+C 停止测试"
+        echo "Запуск программы..."
+        echo "Нажмите Ctrl+C, чтобы остановить тест"
         echo
         ./dist/mcp-bridge-server --help
     fi

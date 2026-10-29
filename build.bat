@@ -1,48 +1,48 @@
 @echo off
 chcp 65001 >nul
-REM MCP Bridge Server 打包脚本 (Windows)
+REM Скрипт сборки MCP Bridge Server (Windows)
 
 echo ========================================
-echo MCP Bridge Server 打包工具
+echo Средство сборки MCP Bridge Server
 echo ========================================
 echo.
 
-REM 检查 Python
+REM Проверить Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [错误] 未找到 Python
+    echo [Ошибка] Python не найден
     pause
     exit /b 1
 )
 
-REM 检查 PyInstaller
+REM Проверить PyInstaller
 python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
-    echo [警告] 未安装 PyInstaller，正在安装...
+    echo [Предупреждение] PyInstaller не установлен, выполняется установка...
     pip install pyinstaller
 )
 
-echo 选择打包选项:
+echo Выберите вариант сборки:
 echo.
-echo   1. 单文件打包 (推荐，便于分发)
-echo   2. 目录打包 (启动更快)
-echo   3. 使用 spec 文件打包 (包含所有优化)
-echo   4. 清理构建文件
-echo   5. 退出
+echo   1. Сборка в один файл (рекомендуется, удобно для распространения)
+echo   2. Сборка в каталог (быстрее запуск)
+echo   3. Сборка с использованием spec-файла (включает все оптимизации)
+echo   4. Очистить файлы сборки
+echo   5. Выход
 echo.
 
-set /p choice="请输入选项 (1-5): "
+set /p choice="Введите вариант (1-5): "
 
 if "%choice%"=="1" (
     echo.
-    echo 正在进行单文件打包...
+    echo Выполняется сборка в один файл...
     echo.
     
-    REM 清理旧文件
+    REM Очистить старые файлы
     if exist build rmdir /s /q build
     if exist dist rmdir /s /q dist
     
-    REM 打包
+    REM Сборка
     pyinstaller --onefile ^
         --name mcp-bridge-server ^
         --add-data "README.md;." ^
@@ -55,22 +55,22 @@ if "%choice%"=="1" (
         --hidden-import uvicorn.protocols.http.auto ^
         --exclude-module tkinter ^
         --exclude-module matplotlib ^
-        utils\mcp_bridge.py
+        utils\mcp_bridge_ru.py
     
     echo.
-    echo ✓ 打包完成！
-    echo 输出文件: dist\mcp-bridge-server.exe
+    echo ✓ Сборка завершена!
+    echo Выходной файл: dist\mcp-bridge-server.exe
     
 ) else if "%choice%"=="2" (
     echo.
-    echo 正在进行目录打包...
+    echo Выполняется сборка в каталог...
     echo.
     
-    REM 清理旧文件
+    REM Очистить старые файлы
     if exist build rmdir /s /q build
     if exist dist rmdir /s /q dist
     
-    REM 打包
+    REM Сборка
     pyinstaller --onedir ^
         --name mcp-bridge-server ^
         --add-data "README.md;." ^
@@ -81,68 +81,68 @@ if "%choice%"=="1" (
         --hidden-import uvicorn.logging ^
         --hidden-import uvicorn.loops.auto ^
         --hidden-import uvicorn.protocols.http.auto ^
-        utils\mcp_bridge.py
+        utils\mcp_bridge_ru.py
     
     echo.
-    echo ✓ 打包完成！
-    echo 输出目录: dist\mcp-bridge-server\
+    echo ✓ Сборка завершена!
+    echo Выходной каталог: dist\mcp-bridge-server\
     
 ) else if "%choice%"=="3" (
     echo.
-    echo 使用 spec 文件打包...
+    echo Сборка с использованием spec-файла...
     echo.
     
-    REM 清理旧文件
+    REM Очистить старые файлы
     if exist build rmdir /s /q build
     if exist dist rmdir /s /q dist
     
-    REM 打包
-    pyinstaller mcp_bridge.spec
+    REM Сборка
+    pyinstaller mcp_bridge_ru.spec
     
     echo.
-    echo ✓ 打包完成！
-    echo 输出文件: dist\mcp-bridge-server.exe
+    echo ✓ Сборка завершена!
+    echo Выходной файл: dist\mcp-bridge-server.exe
     
 ) else if "%choice%"=="4" (
     echo.
-    echo 正在清理构建文件...
+    echo Очистка файлов сборки...
     
     if exist build (
         rmdir /s /q build
-        echo ✓ 已删除 build 目录
+        echo ✓ Каталог build удалён
     )
     
     if exist dist (
         rmdir /s /q dist
-        echo ✓ 已删除 dist 目录
+        echo ✓ Каталог dist удалён
     )
     
     if exist *.spec (
         del *.spec
-        echo ✓ 已删除临时 spec 文件
+        echo ✓ Временные spec-файлы удалены
     )
     
     echo.
-    echo ✓ 清理完成
+    echo ✓ Очистка завершена
     
 ) else if "%choice%"=="5" (
     exit /b 0
 ) else (
     echo.
-    echo [错误] 无效的选项
+    echo [Ошибка] Неверный вариант
 )
 
 echo.
 echo ========================================
 echo.
 
-REM 询问是否测试
+REM Спросить, нужно ли тестирование
 if exist dist\mcp-bridge-server.exe (
-    set /p test="是否测试打包后的程序? (y/n): "
+    set /p test="Протестировать собранную программу? (y/n): "
     if /i "%test%"=="y" (
         echo.
-        echo 正在启动程序...
-        echo 按 Ctrl+C 停止测试
+        echo Запуск программы...
+        echo Нажмите Ctrl+C, чтобы остановить тест
         echo.
         dist\mcp-bridge-server.exe --help
     )

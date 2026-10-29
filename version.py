@@ -1,10 +1,10 @@
 """
-MCP Bridge Server 版本信息
+Информация о версии MCP Bridge Server
 """
 
 __version__ = "1.0.0"
 __author__ = "MCP Bridge Team"
-__description__ = "MCP Bridge Server - 为 DeepSeek 网页端提供 MCP 工具能力的本地桥接服务"
+__description__ = "MCP Bridge Server — локальный мостовой сервис, предоставляющий возможности инструментов MCP для веб-версии DeepSeek"
 __url__ = "https://github.com/your-repo/mcp-bridge-server"
 
 VERSION_INFO = {

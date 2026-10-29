@@ -51,7 +51,7 @@ desktop.ini
 *.log
 logs/
 
-# Config (用户配置不应提交)
+# Config (пользовательская конфигурация не должна коммититься)
 # config/mcp-config.json
 
 # Testing

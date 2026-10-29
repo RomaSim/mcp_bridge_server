@@ -2,9 +2,9 @@
 
 block_cipher = None
 
-# 分析所有依赖
+# Проанализировать все зависимости
 a = Analysis(
-    ['utils/mcp_bridge.py'],
+    ['utils/mcp_bridge_ru.py'],
     pathex=[],
     binaries=[],
     datas=[
@@ -60,10 +60,10 @@ a = Analysis(
     noarchive=False,
 )
 
-# 收集所有文件
+# Собрать все файлы
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# 创建可执行文件
+# Создать исполняемый файл
 exe = EXE(
     pyz,
     a.scripts,
@@ -78,16 +78,16 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # 保持控制台窗口，用于显示日志和交互
+    console=True,  # Оставить окно консоли для отображения журналов и взаимодействия
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon='icon.ico',  # 如果有图标文件，取消注释
+    # icon='icon.ico',  # Если есть файл иконки — раскомментировать
 )
 
-# macOS 特定配置（如果需要打包成 .app）
+# Специфичная для macOS конфигурация (если нужно упаковать в .app)
 # app = BUNDLE(
 #     exe,
 #     name='MCP Bridge Server.app',
